@@ -472,7 +472,6 @@ class ISOBuilder:
         if not script.exists():
             info("No customize_airootfs.sh in airootfs/root/, skipping.")
             return
-
         info("Running customize_airootfs.sh...")
         script.chmod(0o755)
         self._chroot("/root/customize_airootfs.sh")

@@ -55,6 +55,17 @@ arch/x86_64/airootfs.sha512
 
 The initramfs is stripped from the squashfs before packing (rebuilt by mkinitcpio at install time). The kernel and ucode images are kept — the installer needs them.
 
+## Airootfs customisation
+
+Place a `customize_airootfs.sh` at `airootfs/root/customize_airootfs.sh` in your
+profile. mkbang copies it into the chroot via the overlay stage, runs it under
+`arch-chroot`, then removes it.
+
+Typical uses: locale, hostname, timezone, users, services, sudo, pacman tweaks.
+The script runs as root inside the target filesystem — standard chroot environment.
+
+If the script is absent the stage is skipped silently.
+
 ## Licence
 
 GPL-2.0-only — see [LICENSE](LICENSE).
