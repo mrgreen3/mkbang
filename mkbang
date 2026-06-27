@@ -16,6 +16,7 @@ import json
 import math
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -107,7 +108,7 @@ for k in "${!file_permissions[@]}"; do
     printf 'FILEPERM\t%s\t%s\n' "$k" "${file_permissions[$k]}"
 done
 printf 'FILEPERM_END\n'
-""".replace("{profiledef}", str(profiledef))
+""".replace("{profiledef}", shlex.quote(str(profiledef)))
 
     result = run(
         ["bash", "-c", dump_script],
@@ -141,8 +142,7 @@ printf 'FILEPERM_END\n'
         i += 1  # skip __END__
 
         if key in ("bootmodes", "airootfs_image_tool_options"):
-            # multi-word bash arrays arrive as a single space-joined string
-            vars_[key] = values[0].split() if values and values[0] else []
+            vars_[key] = " ".join(values).split() if values else []
         else:
             vars_[key] = values[0] if values else ""
 
@@ -251,6 +251,7 @@ class ISOBuilder:
         self._once("make_customize_airootfs",self._make_customize_airootfs)
         self._once("make_pkglist",           self._make_pkglist)
         self._once("check_ucode",            self._check_ucode)
+        self.need_external_ucodes = (self.work_dir / "need_external_ucodes").exists()
         self._once("make_boot_on_iso9660",   self._make_boot_on_iso9660)
         self._make_bootmodes()
         self._once("cleanup_pacstrap",       self._cleanup_pacstrap_dir)
@@ -453,8 +454,10 @@ class ISOBuilder:
             f"ARCH={self.arch}\n"
             f"ARCHISO_SEARCH_FILENAME={self.search_filename}\n"
         )
+        if len(content) > 1024:
+            raise ValueError(f"grubenv content exceeds 1024 bytes ({len(content)}); shorten iso_name/version/label")
         padding = "#" * (1024 - len(content))
-        return (content + padding)[:1024]
+        return content + padding
 
     # ------------------------------------------------------------------
     # Stage: customize_airootfs
@@ -472,10 +475,8 @@ class ISOBuilder:
 
         info("Running customize_airootfs.sh...")
         script.chmod(0o755)
-        try:
-            self._chroot("/root/customize_airootfs.sh")
-        finally:
-            script.unlink(missing_ok=True)
+        self._chroot("/root/customize_airootfs.sh")
+        script.unlink(missing_ok=True)
         info("Done!")
 
     # ------------------------------------------------------------------
@@ -506,6 +507,7 @@ class ISOBuilder:
             )
             if r.returncode != 0:
                 self.need_external_ucodes = True
+                (self.work_dir / "need_external_ucodes").touch()
                 info("Initramfs has no embedded microcode; external ucode images will be added.")
                 return
 
@@ -539,16 +541,11 @@ class ISOBuilder:
 
     def _make_bootmodes(self):
         for mode in self.bootmodes:
-            stamp = self.work_dir / f"base.bootmode_{mode}"
-            if stamp.exists():
-                info(f"Skipping boot mode '{mode}' (already done).")
-                continue
             method_name = "_boot_" + mode.replace(".", "_").replace("-", "_")
             method = getattr(self, method_name, None)
             if method is None:
                 die(f"Unsupported boot mode: '{mode}'")
-            method()
-            stamp.touch()
+            self._once(f"bootmode_{mode}", method)
 
     # --- bios.syslinux ---
 
