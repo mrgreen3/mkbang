@@ -465,19 +465,17 @@ class ISOBuilder:
         run(["arch-chroot", str(self.pacstrap_dir)] + list(cmd))
 
     def _make_customize_airootfs(self):
-        script = self.profile / "customize_airootfs.sh"
+        script = self.pacstrap_dir / "root/customize_airootfs.sh"
         if not script.exists():
-            info("No customize_airootfs.sh in profile, skipping.")
+            info("No customize_airootfs.sh in airootfs/root/, skipping.")
             return
 
         info("Running customize_airootfs.sh...")
-        dest = self.pacstrap_dir / "customize_airootfs.sh"
-        shutil.copy2(script, dest)
-        dest.chmod(0o755)
+        script.chmod(0o755)
         try:
-            self._chroot("/customize_airootfs.sh")
+            self._chroot("/root/customize_airootfs.sh")
         finally:
-            dest.unlink(missing_ok=True)
+            script.unlink(missing_ok=True)
         info("Done!")
 
     # ------------------------------------------------------------------
