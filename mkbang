@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""
+mkbang — ArchBang/FruitBang ISO builder
+Replaces mkarchiso for the ArchBang/FruitBang use case.
+Supported boot modes: bios.syslinux, uefi.systemd-boot, uefi.grub
+Rootfs image type:    squashfs only
+Build mode:           iso only (no netboot, no bootstrap, no signing)
+Profile layout is fully compatible with existing archbang profiledef.sh,
+packages.x86_64, airootfs/, syslinux/, efiboot/, grub/ directories.
+"""
+import argparse
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+APP_NAME = "mkbang"
+
+UCODES = [
+    "intel-uc.img", "intel-ucode.img",
+    "amd-uc.img",   "amd-ucode.img",
+    "early_ucode.cpio", "microcode.cpio",
+]
+
+
+def info(msg):
+    print(f"[{APP_NAME}] INFO: {msg}", flush=True)
+
+def warning(msg):
+    print(f"[{APP_NAME}] WARNING: {msg}", file=sys.stderr, flush=True)
+
+def die(msg, code=1):
+    print(f"[{APP_NAME}] ERROR: {msg}", file=sys.stderr, flush=True)
+    sys.exit(code)
+
+def run(cmd, check=True, capture=False, cwd=None):
+    env = {k: v for k, v in os.environ.items() if k != "TMPDIR"}
+    kwargs = dict(env=env, cwd=cwd)
+    if capture:
+        kwargs.update(capture_output=True, text=True)
+    result = subprocess.run([str(c) for c in cmd], **kwargs)
+    if check and result.returncode != 0:
+        die(f"Command failed: {' '.join(str(c) for c in cmd)}")
+    return result
