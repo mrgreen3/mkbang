@@ -465,93 +465,19 @@ class ISOBuilder:
         run(["arch-chroot", str(self.pacstrap_dir)] + list(cmd))
 
     def _make_customize_airootfs(self):
-        info("Customizing airootfs...")
-        p = self.pacstrap_dir  # shorthand
+        script = self.profile / "customize_airootfs.sh"
+        if not script.exists():
+            info("No customize_airootfs.sh in profile, skipping.")
+            return
 
-        # Locale
-        locale_gen = p / "etc/locale.gen"
-        if locale_gen.exists():
-            text = locale_gen.read_text()
-            locale_gen.write_text(text.replace("#en_US.UTF-8", "en_US.UTF-8"))
-        self._chroot("locale-gen")
-        (p / "etc/locale.conf").write_text("LANG=en_US.UTF-8\nLC_COLLATE=C\n")
-
-        # Parallel downloads
-        pacman_conf = p / "etc/pacman.conf"
-        if pacman_conf.exists():
-            pacman_conf.write_text(
-                pacman_conf.read_text().replace("#ParallelDownloads", "ParallelDownloads")
-            )
-
-        # Mirrorlist — uncomment Server lines
-        mirrorlist = p / "etc/pacman.d/mirrorlist"
-        if mirrorlist.exists():
-            mirrorlist.write_text(
-                mirrorlist.read_text().replace("#Server", "Server")
-            )
-
-        # Sudo — allow wheel group without password
-        sudoers = p / "etc/sudoers"
-        if sudoers.exists():
-            sudoers.write_text(
-                sudoers.read_text().replace(
-                    "# %wheel ALL=(ALL:ALL) NOPASSWD: ALL",
-                    "%wheel ALL=(ALL:ALL) NOPASSWD: ALL"
-                )
-            )
-            sudoers.chmod(0o440)
-            shutil.chown(str(sudoers), 0, 0)
-
-        # Hide gparted from application menu
-        gparted_desktop = p / "usr/share/applications/gparted.desktop"
-        if gparted_desktop.exists():
-            text = gparted_desktop.read_text()
-            if "Hidden=true" not in text:
-                text = re.sub(
-                    r"(^Categories=.*$)",
-                    r"\1\nHidden=true",
-                    text, flags=re.MULTILINE
-                )
-                gparted_desktop.write_text(text)
-
-        # Hostname
-        (p / "etc/hostname").write_text("archbang\n")
-
-        # Vconsole
-        (p / "etc/vconsole.conf").write_text("KEYMAP=us\nFONT=Lat2-Terminus16\n")
-
-        # Timezone
-        tz_src = p / "usr/share/zoneinfo/Canada/Montreal"
-        tz_link = p / "etc/localtime"
-        tz_link.unlink(missing_ok=True)
-        tz_link.symlink_to("/usr/share/zoneinfo/Canada/Montreal")
-        self._chroot("hwclock", "--systohc", "--utc")
-
-        # Systemd user services for audio (wireplumber + pipewire)
-        target_dir = p / "etc/skel/.config/systemd/user/default.target.wants"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        unit_src = Path("/usr/lib/systemd/user")
-        for svc in ("wireplumber.service", "pipewire.service", "pipewire-pulse.service"):
-            link = target_dir / svc
-            link.unlink(missing_ok=True)
-            link.symlink_to(f"/usr/lib/systemd/user/{svc}")
-
-        # Live user
-        self._chroot(
-            "useradd", "-m", "-p", "", "-G", "wheel",
-            "-s", "/bin/bash", "-g", "users", "ablive"
-        )
-
-        # System services
-        self._chroot("systemctl", "enable", "pacman-init.service", "NetworkManager.service")
-
-        # dconf database
-        self._chroot("bash", "-c",
-            "command -v dconf &>/dev/null && dconf update || true")
-
-        # Graphical target
-        self._chroot("systemctl", "set-default", "graphical.target")
-
+        info("Running customize_airootfs.sh...")
+        dest = self.pacstrap_dir / "customize_airootfs.sh"
+        shutil.copy2(script, dest)
+        dest.chmod(0o755)
+        try:
+            self._chroot("/customize_airootfs.sh")
+        finally:
+            dest.unlink(missing_ok=True)
         info("Done!")
 
     # ------------------------------------------------------------------
