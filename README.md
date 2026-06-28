@@ -1,6 +1,6 @@
-# mkbang
+# abiso
 
-Minimal Arch-based ISO builder for ArchBang and FruitBang. Replaces mkarchiso for the live ISO use case — squashfs, syslinux BIOS, systemd-boot UEFI, no PXE, no signing, no erofs. Profile-compatible with archiso.
+Minimal Arch-based ISO builder for ArchBang. Replaces mkarchiso for the live ISO use case — squashfs, syslinux BIOS, systemd-boot UEFI, no PXE, no signing, no erofs. Profile-compatible with archiso.
 
 ## Requirements
 
@@ -20,10 +20,10 @@ mtools                 # mmd, mcopy for EFI image
 Run from inside the ISO profile directory (where `profiledef.sh` lives):
 
 ```bash
-sudo ./mkbang           # standard build
-sudo ./mkbang -v        # verbose
-sudo ./mkbang -r        # remove work dir after build
-sudo ./mkbang -w /tmp/work -o /tmp/out   # custom dirs
+sudo ./abiso           # standard build
+sudo ./abiso -v        # verbose
+sudo ./abiso -r        # remove work dir after build
+sudo ./abiso -w /tmp/work -o /tmp/out   # custom dirs
 ```
 
 ## Profile compatibility
@@ -58,7 +58,7 @@ The initramfs is stripped from the squashfs before packing (rebuilt by mkinitcpi
 ## Airootfs customisation
 
 Place a `customize_airootfs.sh` at `airootfs/root/customize_airootfs.sh` in your
-profile. mkbang copies it into the chroot via the overlay stage, runs it under
+profile. abiso copies it into the chroot via the overlay stage, runs it under
 `arch-chroot`, then removes it.
 
 Typical uses: locale, hostname, timezone, users, services, sudo, pacman tweaks.
